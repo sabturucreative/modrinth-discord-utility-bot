@@ -155,8 +155,8 @@ function sideCategory(project) {
   const s = project.server_side;
   if (!c || !s) return { key: 'unknown', label: '❓', text: 'tidak diketahui' };
   if (s !== 'unsupported' && c === 'unsupported') return { key: 'server', label: '🖥️', text: 'server-only' };
-  if (c !== 'unsupported' && s === 'unsupported') return { key: 'client', label: '🧑', text: 'client-only' };
-  if (c !== 'unsupported' && s !== 'unsupported') return { key: 'both', label: '🧑🤝🧑', text: 'client+server' };
+  if (c !== 'unsupported' && s === 'unsupported') return { key: 'client', label: '🎮', text: 'client-only' };
+  if (c !== 'unsupported' && s !== 'unsupported') return { key: 'both', label: '🤝', text: 'client+server' };
   return { key: 'unknown', label: '❓', text: 'tidak diketahui' };
 }
 

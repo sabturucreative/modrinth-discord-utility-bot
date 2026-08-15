@@ -187,7 +187,7 @@ async function runUpdates(i, targets, restartCollector) {
   const clientUpdated = succeeded.filter((r) => r.side === 'both');
   if (clientUpdated.length > 0) {
     embed.addFields({
-      name: `🧑🤝🧑 Ingatkan pemain update client (${clientUpdated.length})`,
+      name: `🤝 Ingatkan pemain update client (${clientUpdated.length})`,
       value: clientUpdated.map((r) => `- **${r.title}**`).join('\n'),
       inline: false,
     });
@@ -274,7 +274,7 @@ async function execute(interaction) {
     if (clientMods.length > 0) {
       addChunkedField(
         embed,
-        `🧑🤝🧑 Wajib Update Client (${clientMods.length})`,
+        `🤝 Wajib Update Client (${clientMods.length})`,
         clientMods.map((u) => `- **${u.project.title}** (${modrinth.sideCategory(u.project).text})`)
       );
     }

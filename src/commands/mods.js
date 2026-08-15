@@ -108,8 +108,8 @@ async function execute(interaction) {
 
     const summary = [
       `🖥️ server-only ${counts.server}`,
-      `🧑 client-only ${counts.client}`,
-      `🧑🤝🧑 client+server ${counts.both}`,
+      `🎮 client-only ${counts.client}`,
+      `🤝 client+server ${counts.both}`,
       `[?] tak dikenal ${counts.unknown}`,
     ].join(' · ');
 
@@ -130,7 +130,7 @@ async function execute(interaction) {
         }
       )
       .setFooter({
-        text: `Direktori: ${directory} · 🖥️ server-only | 🧑 client-only | 🧑🤝🧑 client+server | [?] bukan dari Modrinth`,
+        text: `Direktori: ${directory} · 🖥️ server-only | 🎮 client-only | 🤝 client+server | [?] bukan dari Modrinth`,
       })
       .setTimestamp();
 
