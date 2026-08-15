@@ -1,0 +1,15 @@
+node_modules/
+.env
+logs/
+src/database/db.json
+*.log
+
+# Sensitive / credentials
+AGENTS.md
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+credentials.*
+secrets.*
