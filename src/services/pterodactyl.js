@@ -28,6 +28,12 @@ async function getServer() {
   return data.attributes;
 }
 
+async function getResources() {
+  requireConfig();
+  const { data } = await client().get(`/servers/${serverId}/resources`);
+  return data.attributes;
+}
+
 async function listDirectory(directory = '/') {
   requireConfig();
   const { data } = await client().get(`/servers/${serverId}/files/list`, {
@@ -103,8 +109,50 @@ async function deleteFile(root, files) {
   return data;
 }
 
+async function detectServerLoader() {
+  requireConfig();
+
+  const rootFiles = await listDirectory('/');
+  const rootNames = rootFiles.map((f) => f.name.toLowerCase());
+
+  const modFiles = await listDirectory('/mods').catch(() => []);
+  const modNames = modFiles.map((f) => f.name.toLowerCase());
+
+  const hasAny = (...needles) => rootNames.some((n) => needles.some((x) => n.includes(x)));
+
+  if (rootNames.includes('.fabric') || rootNames.includes('fabric-server-launch.properties') || hasAny('fabric-loader-', 'fabric-api-')) {
+    return 'fabric';
+  }
+
+  if (modNames.some((n) => n.startsWith('fabric-api-') || n.startsWith('fabric-loader-'))) {
+    return 'fabric';
+  }
+
+  if (hasAny('paper-', 'paper')) {
+    return 'paper';
+  }
+  if (hasAny('spigot-')) {
+    return 'spigot';
+  }
+  if (hasAny('velocity')) {
+    return 'velocity';
+  }
+
+  try {
+    const libs = await listDirectory('/libraries/net');
+    const libNames = libs.map((f) => f.name.toLowerCase());
+    if (libNames.includes('neoforged')) return 'neoforge';
+    if (libNames.includes('minecraftforge')) return 'forge';
+  } catch (err) {
+    logger.warn('Gagal membaca /libraries/net saat deteksi loader.', { error: err.message });
+  }
+
+  return null;
+}
+
 module.exports = {
   getServer,
+  getResources,
   listDirectory,
   getUploadUrl,
   uploadFile,
@@ -112,4 +160,5 @@ module.exports = {
   restartServer,
   sendCommand,
   deleteFile,
+  detectServerLoader,
 };

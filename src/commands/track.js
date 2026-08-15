@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const modrinth = require('../services/modrinth');
+const pterodactyl = require('../services/pterodactyl');
 const db = require('../database');
 const { errorEmbed, COLOR } = require('../utils/embeds');
 const logger = require('../utils/logger');
@@ -56,9 +57,17 @@ async function handleAdd(interaction) {
   await interaction.deferReply();
 
   const projectRef = interaction.options.getString('project', true);
-  const loader = interaction.options.getString('loader');
+  let loader = interaction.options.getString('loader');
   const gameVersion = interaction.options.getString('game_version');
   const serverType = interaction.options.getString('server_type') || 'mods';
+
+  if (!loader) {
+    try {
+      loader = await pterodactyl.detectServerLoader();
+    } catch (err) {
+      logger.warn('Gagal mendeteksi loader server saat /track add.', { error: err.message });
+    }
+  }
 
   try {
     const project = await modrinth.getProject(projectRef);

@@ -62,9 +62,22 @@ async function execute(interaction) {
 
   const projectRef = interaction.options.getString('project', true);
   const type = interaction.options.getString('type') || 'mod';
-  const loader = interaction.options.getString('loader');
+  let loader = interaction.options.getString('loader');
   const gameVersion = interaction.options.getString('game_version');
   const shouldRestart = interaction.options.getString('restart') === 'yes';
+  let loaderDetected = false;
+
+  if (!loader) {
+    try {
+      const detected = await pterodactyl.detectServerLoader();
+      if (detected) {
+        loader = detected;
+        loaderDetected = true;
+      }
+    } catch (err) {
+      logger.warn('Gagal mendeteksi loader server saat /install.', { error: err.message });
+    }
+  }
 
   const directory = TYPE_DIRECTORY[type];
 
@@ -121,7 +134,7 @@ async function execute(interaction) {
         { name: 'Directory', value: `\`${directory}\``, inline: true },
         {
           name: 'Loader',
-          value: (version.loaders || []).join(', ') || 'N/A',
+          value: `${(version.loaders || []).join(', ') || 'N/A'}${loaderDetected ? ' · auto-detect' : ''}`,
           inline: true,
         },
         {
