@@ -142,6 +142,7 @@ async function runUpdates(i, targets, restartCollector) {
       results.push({
         ok: true,
         title: target.project.title,
+        side: modrinth.sideCategory(target.project).key,
         oldFile: removed[0] || target.filename,
         newFile: target.newFile.filename,
       });
@@ -181,6 +182,15 @@ async function runUpdates(i, targets, restartCollector) {
         new ButtonBuilder().setCustomId(RESTART_ID).setLabel('🔄 Restart Server').setStyle(ButtonStyle.Danger)
       )
     );
+  }
+
+  const clientUpdated = succeeded.filter((r) => r.side === 'both');
+  if (clientUpdated.length > 0) {
+    embed.addFields({
+      name: `🧑🤝🧑 Ingatkan pemain update client (${clientUpdated.length})`,
+      value: clientUpdated.map((r) => `- **${r.title}**`).join('\n'),
+      inline: false,
+    });
   }
 
   if (restartCollector) restartCollector.stop();
@@ -254,8 +264,18 @@ async function execute(interaction) {
         `🔄 Ada Update (${updatable.length})`,
         updatable.map((u, i) => {
           const from = u.installedVersion ? u.installedVersion.version_number : u.filename;
-          return `${i + 1}. **${u.project.title}** — \`${from}\` → \`${u.latest.version_number}\` (${formatFileSize(u.newFile.size)})`;
+          const side = modrinth.sideCategory(u.project);
+          return `${i + 1}. **${u.project.title}** — \`${from}\` → \`${u.latest.version_number}\` (${formatFileSize(u.newFile.size)}) ${side.label}`;
         })
+      );
+    }
+
+    const clientMods = updatable.filter((u) => modrinth.sideCategory(u.project).key === 'both');
+    if (clientMods.length > 0) {
+      addChunkedField(
+        embed,
+        `🧑🤝🧑 Wajib Update Client (${clientMods.length})`,
+        clientMods.map((u) => `- **${u.project.title}** (${modrinth.sideCategory(u.project).text})`)
       );
     }
 
@@ -294,7 +314,7 @@ async function execute(interaction) {
           updatable.map((u, i) =>
             new StringSelectMenuOptionBuilder()
               .setLabel(`${i + 1}. ${u.project.title}`)
-              .setDescription(`${u.latest.version_number} · ${formatFileSize(u.newFile.size)}`)
+              .setDescription(`${u.latest.version_number} · ${formatFileSize(u.newFile.size)} · ${modrinth.sideCategory(u.project).text}`)
               .setValue(updatableKey(u))
           )
         );

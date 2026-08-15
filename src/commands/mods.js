@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const pterodactyl = require('../services/pterodactyl');
+const modrinth = require('../services/modrinth');
 const { COLOR, formatFileSize, errorEmbed } = require('../utils/embeds');
+const { mapLimit } = require('../utils/promises');
 const logger = require('../utils/logger');
 
 const TYPE_OPTIONS = [
@@ -70,8 +72,31 @@ async function execute(interaction) {
 
     const label = type === 'resourcepacks' ? 'Resource Pack' : type === 'datapacks' ? 'Datapack' : type === 'plugins' ? 'Plugin' : 'Mod';
     const visible = entries.slice(0, MAX_FILES);
-    const lines = visible.map((f) => `- \`${f.name}\` (${formatFileSize(f.size)})`);
     const totalSize = entries.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    const categorized = await mapLimit(entries, 6, async (file) => {
+      try {
+        const match = await modrinth.matchProjectByFile(file.name);
+        if (!match) return { file, category: { key: 'unknown', label: '[?]', text: 'tidak dikenal' } };
+        return { file, category: modrinth.sideCategory(match.project) };
+      } catch (err) {
+        logger.warn('Gagal mengkategorikan file.', { file: file.name, error: err.message });
+        return { file, category: { key: 'unknown', label: '[?]', text: 'tidak dikenal' } };
+      }
+    });
+
+    const counts = categorized.reduce(
+      (acc, item) => {
+        acc[item.category.key] = (acc[item.category.key] || 0) + 1;
+        return acc;
+      },
+      { server: 0, client: 0, both: 0, unknown: 0 }
+    );
+
+    const visibleMap = new Map(visible.map((f) => [f.name, f]));
+    const lines = categorized
+      .filter((item) => visibleMap.has(item.file.name))
+      .map((item) => `- \`${item.file.name}\` (${formatFileSize(item.file.size)}) ${item.category.label}`);
 
     let description = lines.join('\n');
     if (entries.length > MAX_FILES) {
@@ -81,16 +106,32 @@ async function execute(interaction) {
       description = `${description.slice(0, 4000)}...\n(daftar terpotong karena terlalu panjang)`;
     }
 
+    const summary = [
+      `🖥️ server-only ${counts.server}`,
+      `🧑 client-only ${counts.client}`,
+      `🧑🤝🧑 client+server ${counts.both}`,
+      `[?] tak dikenal ${counts.unknown}`,
+    ].join(' · ');
+
     const embed = new EmbedBuilder()
       .setColor(COLOR)
       .setTitle(`📦 Daftar ${label} (${entries.length})`)
       .setDescription(description)
-      .addFields({
-        name: 'Total Ukuran',
-        value: formatFileSize(totalSize),
-        inline: true,
+      .addFields(
+        {
+          name: 'Kategori Side',
+          value: summary,
+          inline: true,
+        },
+        {
+          name: 'Total Ukuran',
+          value: formatFileSize(totalSize),
+          inline: true,
+        }
+      )
+      .setFooter({
+        text: `Direktori: ${directory} · 🖥️ server-only | 🧑 client-only | 🧑🤝🧑 client+server | [?] bukan dari Modrinth`,
       })
-      .setFooter({ text: `Direktori: ${directory}` })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });

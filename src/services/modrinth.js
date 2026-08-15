@@ -94,7 +94,7 @@ async function downloadFileBuffer(url) {
 const LOADER_SUFFIXES = ['-fabric', '-forge', '-neoforge', '-quilt', '-paper', '-spigot', '-velocity', '-bukkit'];
 
 function extractSlugToken(filename) {
-  let s = filename.replace(/\.jar$/i, '').toLowerCase().replace(/_/g, '-');
+  let s = filename.replace(/\.(jar|zip|mcaddon|mcpack|mcmeta|datapack)$/i, '').toLowerCase().replace(/_/g, '-');
   s = s.replace(/(?:-fabric|-forge|-neoforge|-quilt|-paper|-spigot|-velocity|-bukkit)+/g, '-');
   const out = [];
   for (const seg of s.split('-')) {
@@ -128,25 +128,63 @@ function normalizeProject(p) {
     title: p.title,
     project_type: p.project_type,
     icon_url: p.icon_url || null,
+    client_side: p.client_side || null,
+    server_side: p.server_side || null,
   };
 }
 
+const projectCache = new Map();
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
+function cacheGet(filename) {
+  const hit = projectCache.get(filename);
+  if (!hit) return undefined;
+  if (Date.now() - hit.ts > CACHE_TTL_MS) {
+    projectCache.delete(filename);
+    return undefined;
+  }
+  return hit.value;
+}
+
+function cacheSet(filename, value) {
+  projectCache.set(filename, { value, ts: Date.now() });
+}
+
+function sideCategory(project) {
+  const c = project.client_side;
+  const s = project.server_side;
+  if (!c || !s) return { key: 'unknown', label: '❓', text: 'tidak diketahui' };
+  if (s !== 'unsupported' && c === 'unsupported') return { key: 'server', label: '🖥️', text: 'server-only' };
+  if (c !== 'unsupported' && s === 'unsupported') return { key: 'client', label: '🧑', text: 'client-only' };
+  if (c !== 'unsupported' && s !== 'unsupported') return { key: 'both', label: '🧑🤝🧑', text: 'client+server' };
+  return { key: 'unknown', label: '❓', text: 'tidak diketahui' };
+}
+
 async function matchProjectByFile(filename) {
+  const cached = cacheGet(filename);
+  if (cached) return cached;
+
   const token = extractSlugToken(filename);
   if (!token) return null;
 
-  const direct = await resolveProjectBySlug(token);
-  if (direct) return { project: normalizeProject(direct), matchToken: token };
+  let match = null;
 
-  try {
-    const { hits } = await searchProjects(token, { limit: 1 });
-    if (hits && hits.length > 0) {
-      return { project: normalizeProject(hits[0]), matchToken: token };
+  const direct = await resolveProjectBySlug(token);
+  if (direct) {
+    match = { project: normalizeProject(direct), matchToken: token };
+  } else {
+    try {
+      const { hits } = await searchProjects(token, { limit: 1 });
+      if (hits && hits.length > 0) {
+        match = { project: normalizeProject(hits[0]), matchToken: token };
+      }
+    } catch (err) {
+      logger.warn('Fallback search gagal saat pemetaan file.', { file: filename, error: err.message });
     }
-  } catch (err) {
-    logger.warn('Fallback search gagal saat pemetaan file.', { file: filename, error: err.message });
   }
-  return null;
+
+  cacheSet(filename, match);
+  return match;
 }
 
 function resolveOutdated(project, filename, versions) {
@@ -193,4 +231,5 @@ module.exports = {
   extractSlugToken,
   matchProjectByFile,
   resolveOutdated,
+  sideCategory,
 };
