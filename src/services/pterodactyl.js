@@ -109,6 +109,13 @@ async function deleteFile(root, files) {
   return data;
 }
 
+async function detectMcVersion() {
+  requireConfig();
+  const files = await listDirectory('/versions').catch(() => []);
+  const dir = files.find((f) => !f.is_file);
+  return dir ? dir.name : null;
+}
+
 async function detectServerLoader() {
   requireConfig();
 
@@ -161,4 +168,5 @@ module.exports = {
   sendCommand,
   deleteFile,
   detectServerLoader,
+  detectMcVersion,
 };

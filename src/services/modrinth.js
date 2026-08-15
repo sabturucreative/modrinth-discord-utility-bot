@@ -91,6 +91,95 @@ async function downloadFileBuffer(url) {
   return Buffer.from(response.data);
 }
 
+const LOADER_SUFFIXES = ['-fabric', '-forge', '-neoforge', '-quilt', '-paper', '-spigot', '-velocity', '-bukkit'];
+
+function extractSlugToken(filename) {
+  let s = filename.replace(/\.jar$/i, '').toLowerCase().replace(/_/g, '-');
+  s = s.replace(/(?:-fabric|-forge|-neoforge|-quilt|-paper|-spigot|-velocity|-bukkit)+/g, '-');
+  const out = [];
+  for (const seg of s.split('-')) {
+    if (/^v?\d/.test(seg)) break;
+    out.push(seg);
+  }
+  return out.join('-');
+}
+
+async function resolveProjectBySlug(candidate) {
+  let c = candidate;
+  while (c) {
+    try {
+      return await getProject(c);
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        if (!c.includes('-')) return null;
+        c = c.slice(0, c.lastIndexOf('-'));
+        continue;
+      }
+      throw err;
+    }
+  }
+  return null;
+}
+
+function normalizeProject(p) {
+  return {
+    id: p.id || p.project_id,
+    slug: p.slug,
+    title: p.title,
+    project_type: p.project_type,
+    icon_url: p.icon_url || null,
+  };
+}
+
+async function matchProjectByFile(filename) {
+  const token = extractSlugToken(filename);
+  if (!token) return null;
+
+  const direct = await resolveProjectBySlug(token);
+  if (direct) return { project: normalizeProject(direct), matchToken: token };
+
+  try {
+    const { hits } = await searchProjects(token, { limit: 1 });
+    if (hits && hits.length > 0) {
+      return { project: normalizeProject(hits[0]), matchToken: token };
+    }
+  } catch (err) {
+    logger.warn('Fallback search gagal saat pemetaan file.', { file: filename, error: err.message });
+  }
+  return null;
+}
+
+function resolveOutdated(project, filename, versions) {
+  if (!versions || versions.length === 0) {
+    return { status: 'unknown', project, filename, latest: null, newFile: null };
+  }
+
+  const latest = pickLatestVersion(versions);
+  const latestFile = getPrimaryFile(latest);
+
+  const byFilename = versions.find((v) => v.files && v.files.some((f) => f.filename === filename));
+  const installedVersion =
+    byFilename || versions.find((v) => filename.toLowerCase().includes(String(v.version_number).toLowerCase()));
+
+  if (!installedVersion) {
+    return { status: 'unknown', project, filename, latest, newFile: latestFile };
+  }
+
+  if (installedVersion.id === latest.id) {
+    return { status: 'current', project, filename, latest, newFile: latestFile, installedVersion };
+  }
+
+  const outdated = new Date(installedVersion.date_published) < new Date(latest.date_published);
+  return {
+    status: outdated ? 'updatable' : 'current',
+    project,
+    filename,
+    latest,
+    newFile: latestFile,
+    installedVersion,
+  };
+}
+
 module.exports = {
   searchProjects,
   getProject,
@@ -101,4 +190,7 @@ module.exports = {
   pickLatestVersion,
   getPrimaryFile,
   downloadFileBuffer,
+  extractSlugToken,
+  matchProjectByFile,
+  resolveOutdated,
 };
