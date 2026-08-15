@@ -15,7 +15,16 @@
     "pterodactyl",
     "minecraft"
   ],
+  "author": "sabturucreative",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sabturucreative/modrinth-discord-utility-bot.git"
+  },
+  "homepage": "https://github.com/sabturucreative/modrinth-discord-utility-bot",
+  "bugs": {
+    "url": "https://github.com/sabturucreative/modrinth-discord-utility-bot/issues"
+  },
   "engines": {
     "node": ">=18"
   },
